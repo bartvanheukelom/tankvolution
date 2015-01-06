@@ -1,0 +1,21 @@
+{
+	"build_systems":
+	[
+		{
+			"name": "TheBuild",
+			"shell_cmd": "./build.sh",
+			"working_dir": "$project_path"
+		}
+	],
+	"folders":
+	[
+		{
+			"follow_symlinks": true,
+			"path": "."
+		},
+		{
+			"follow_symlinks": true,
+			"path": "/home/bart/weber/share/haxe-common/trunk"
+		}
+	]
+}
