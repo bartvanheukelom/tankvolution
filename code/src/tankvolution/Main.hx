@@ -1,11 +1,14 @@
 package tankvolution;
 
 import haxe.ds.ObjectMap;
+import js.html.CanvasElement;
+import js.html.CanvasRenderingContext2D;
 import tankvolution.model.Resource;
 import tankvolution.model.Tank;
 import tankvolution.model.World;
 import tankvolution.view.ResourceView;
 import tankvolution.view.TankView;
+import threejs.cameras.OrthographicCamera;
 import threejs.cameras.PerspectiveCamera;
 import threejs.core.Object3D;
 import threejs.extras.geometries.CubeGeometry;
@@ -20,6 +23,8 @@ import threejs.objects.Mesh;
 import threejs.renderers.WebGLRenderer;
 import threejs.scenes.Fog;
 import threejs.scenes.Scene;
+import threejs.textures.Texture;
+import threejs.ThreeJs;
 import tortilla.Tortilla;
 import weber.game.assets.AssetManager;
 import weber.game.assets.ThreeTextureAsset;
@@ -34,6 +39,14 @@ class Main {
 	private var cam:PerspectiveCamera;
 	private var sun:DirectionalLight;
 	private var sunTarget:Object3D;
+
+
+	private var uiCanvas:CanvasElement;
+	private var uiCtx:CanvasRenderingContext2D;
+	private var uiScene:Scene;
+	private var uiCam:OrthographicCamera;
+	private var uiPlane:Mesh;
+	private var uiTex:Texture;
 
 	private var world:World;
 
@@ -67,8 +80,9 @@ class Main {
 		scene = new Scene();
 		cam = new PerspectiveCamera(75, 1, 1, 400);
 		cam.position.z = 60;
-		cam.position.y = -45;
+		cam.position.y = 45;
 		cam.rotation.x = Math.PI * 0.15;
+		cam.rotation.z = Math.PI;
 		cam.rotation.order = "ZYX";
 		trace("camrot", cam.rotation);
 
@@ -94,6 +108,22 @@ class Main {
 		scene.fog = new Fog(0x000000, 50, 400);
 
 		entityViews = new Map<Entity, Dynamic>();
+
+		uiCanvas = Tortilla.createBuffer(1,1);
+		uiCtx = uiCanvas.getContext2d();
+
+		uiScene = new Scene();
+		uiCam = new OrthographicCamera(0,1,0,1,-1000,1000);
+
+		uiTex = new Texture();
+		uiTex.image = uiCanvas;
+		uiTex.generateMipmaps = false;
+		uiTex.magFilter = ThreeJs.NearestFilter;
+		uiTex.minFilter = ThreeJs.NearestFilter;
+
+		uiPlane = new Mesh(new PlaneGeometry(1,1), new MeshBasicMaterial({map: uiTex, transparent: true}));
+		uiPlane.rotation.x = -Math.PI;
+		uiScene.add(uiPlane);
 
 		Tortilla.addEventListener(Tortilla.EV_RESIZED, adaptToSize);
 		adaptToSize();
@@ -122,9 +152,15 @@ class Main {
 		trace('adaptToSize ${w}x${h} ($aspect)');
 		cam.aspect = aspect;
 		renderer.setSize(w,h,false);
+
+		uiCanvas.width = Tortilla.canvas.width;
+		uiCanvas.height = Tortilla.canvas.height;
+
 	}
 
 	public function frame(ctx:Dynamic, dt:Float) {
+
+		uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
 
 		if (world != null) {
 
@@ -165,8 +201,8 @@ class Main {
 			if (KeyboardInput.isKeyPressed(KeyboardInput.KEY_B)) {
 				cam.position.x = 0;
 				cam.position.z = 60;
-				cam.position.y = -45;
-				cam.rotation.set(Math.PI * 0.15, 0, 0);
+				cam.position.y = 45;
+				cam.rotation.set(Math.PI * 0.15, 0, Math.PI);
 				viewingTank = null;
 			}
 
@@ -248,9 +284,113 @@ class Main {
 			scene.remove(sun.shadowCamera);
 			sun.shadowCamera = null;
 
+
+			uiCtx.save(); {
+
+				uiCtx.translate(50,50);
+
+				var mapSize = 200;
+
+				uiCtx.fillStyle = "black";
+				uiCtx.globalAlpha = 0.75;
+				uiCtx.fillRect(0,0,mapSize,mapSize);
+				uiCtx.globalAlpha = 1;
+				uiCtx.strokeStyle = "white";
+				uiCtx.lineWidth = 2;
+				uiCtx.strokeRect(0,0,mapSize,mapSize);
+
+				uiCtx.translate(mapSize,0);
+				uiCtx.scale(-1,1);
+
+				uiCtx.beginPath();
+				uiCtx.rect(1,1,mapSize-2,mapSize-2);
+				uiCtx.clip();
+
+				for (e in world.entities) {
+					var pos;
+					if (Std.is(e, Tank)) {
+						var t:Tank = cast e;
+						pos = t.position;
+					}
+					else if (Std.is(e, Resource)) {
+						var r:Resource = cast e;
+						pos = r.position;
+					}
+					else pos = null;
+
+					var mx = ((pos.x / world.size) + 0.5) * mapSize;
+					var my = ((pos.y / world.size) + 0.5) * mapSize;
+					uiCtx.save(); {
+						uiCtx.translate(mx, my);
+
+						if (Std.is(e, Tank)) {
+							var t:Tank = cast e;
+						
+
+							uiCtx.fillStyle = TankView.COLORS[t.family];
+
+							uiCtx.globalAlpha = 0.2;
+							uiCtx.beginPath();
+							uiCtx.arc(0, 0, 7, 0, Math.PI*2, false);
+							uiCtx.closePath();
+							uiCtx.fill();
+							uiCtx.globalAlpha = 1;
+
+							uiCtx.fillRect(-1, -1, 2, 2);
+							
+						}
+						if (Std.is(e, Resource)) {
+							var r:Resource = cast e;
+							uiCtx.fillStyle = "yellow";
+							uiCtx.globalAlpha = r.value / 1000;
+							uiCtx.fillRect(-3, -3, 6, 6);
+						}
+
+					} uiCtx.restore();
+				}
+
+				var cx = ((cam.position.x / world.size) + 0.5) * mapSize;
+				var cy = ((cam.position.y / world.size) + 0.5) * mapSize;
+				uiCtx.save(); {
+					uiCtx.translate(cx, cy);
+					uiCtx.strokeStyle = "white";
+					uiCtx.rotate(cam.rotation.z + Maths.HALFPI);
+					var camScale = 4 * cam.position.z / 60;
+					var camScaleX = camScale;// * cam.rotation.x;
+
+					uiCtx.beginPath();
+					uiCtx.moveTo(0,0);
+					uiCtx.lineTo(15 * camScaleX, -15 * camScale);
+					uiCtx.lineTo(15 * camScaleX, 15 * camScale);
+					
+					uiCtx.closePath();
+					uiCtx.lineWidth = 1;
+					uiCtx.stroke();
+
+				} uiCtx.restore();
+				
+
+			} uiCtx.restore();
+
+
 		}
 
+		renderer.autoClear = true;
 		renderer.render(scene, cam);
+
+		uiTex.needsUpdate = true;
+
+		uiPlane.position.x = uiCanvas.width/2;
+		uiPlane.position.y = uiCanvas.height/2;
+		uiPlane.scale.x = uiCanvas.width;
+		uiPlane.scale.y = uiCanvas.height;
+
+		uiCam.right = uiCanvas.width;
+		uiCam.bottom = uiCanvas.height;
+		uiCam.updateProjectionMatrix();
+
+		renderer.autoClear = false;
+		renderer.render(uiScene, uiCam);
 
 	}
 

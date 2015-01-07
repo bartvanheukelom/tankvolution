@@ -33,6 +33,7 @@ class TankView {
 	private var babyBar:Mesh;
 
 	private static var TEX_CAMO = ImageAsset.declare("camo");
+	public static var COLORS = ["#33CCFF", "#FF3366", "#1AFF00", "#002EB8"];
 	
 	private var time:Float = 0;
 
@@ -53,7 +54,7 @@ class TankView {
 
 		// --- body
 
-		var color = ["#33CCFF", "#FF3366", "#1AFF00", "#002EB8"][tank.family];
+		var color = COLORS[tank.family];
 
 		var canv = Browser.document.createCanvasElement();
 		canv.width = 256;
