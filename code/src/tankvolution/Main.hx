@@ -337,12 +337,21 @@ class Main {
 							uiCtx.globalAlpha = 1;
 
 							uiCtx.fillRect(-1, -1, 2, 2);
+
+							if (t == viewingTank) {
+								uiCtx.lineWidth = 1;
+								uiCtx.strokeStyle = "white";
+								uiCtx.beginPath();
+								uiCtx.arc(0,0,7,0,2*Math.PI,false);
+								uiCtx.closePath();
+								uiCtx.stroke();
+							}
 							
 						}
 						if (Std.is(e, Resource)) {
 							var r:Resource = cast e;
 							uiCtx.fillStyle = "yellow";
-							uiCtx.globalAlpha = r.value / 1000;
+							uiCtx.globalAlpha = r.value / 500;
 							uiCtx.fillRect(-3, -3, 6, 6);
 						}
 
