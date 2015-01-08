@@ -33,7 +33,7 @@ class TankView {
 	private var babyBar:Mesh;
 
 	private static var TEX_CAMO = ImageAsset.declare("camo");
-	public static var COLORS = ["#33CCFF", "#FF3366", "#1AFF00", "#002EB8"];
+	// public static var COLORS = ["#33CCFF", "#FF3366", "#1AFF00", "#002EB8"];
 	
 	private var time:Float = 0;
 
@@ -54,7 +54,7 @@ class TankView {
 
 		// --- body
 
-		var color = COLORS[tank.family];
+		var color = tankColour(tank);// COLORS[tank.family];
 
 		var canv = Browser.document.createCanvasElement();
 		canv.width = 256;
@@ -170,6 +170,12 @@ class TankView {
 		loadBar.position.x = 0.1;
 		turret.add(loadBar);
 
+	}
+
+	public static function tankColour(t:Tank) {
+		// var f = Math.floor(t.family * 256);
+		// return 'rgba($f,$f,$f,1)';
+		return "hsl(" + Math.floor(t.family * 360) + ", 100%, 50%)";
 	}
 
 	public function update(dt:Float) {

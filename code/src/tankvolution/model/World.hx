@@ -22,8 +22,9 @@ class World {
 
 		for (t in 0...Math.floor(size*size * density)) {
 			var pos = randomPos();
-			var fam = (pos.x > 0 ? 1 : 0) + (pos.y > 0 ? 2 : 0);
-			var tank = new Tank(this, pos, fam);
+			// var fam = (pos.x > 0 ? 1 : 0) + (pos.y > 0 ? 2 : 0);
+			var tank = new Tank(this, pos);
+			tank.family = Math.random();
 			tank.health = tank.inhpMaxHealth * Maths.randomBetween(0.5, 1);
 			tank.resources = tank.inhpMaxResources * Maths.randomBetween(0.5, 1);
 			tank.baby = tank.inhpBabyPart * tank.inhpMaxResources * Maths.randomBetween(0, 0.8);

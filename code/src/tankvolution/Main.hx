@@ -327,7 +327,7 @@ class Main {
 							var t:Tank = cast e;
 						
 
-							uiCtx.fillStyle = TankView.COLORS[t.family];
+							uiCtx.fillStyle = TankView.tankColour(t);// TankView.COLORS[t.family];
 
 							uiCtx.globalAlpha = 0.2;
 							uiCtx.beginPath();

@@ -49,6 +49,8 @@ class Tank implements Entity extends EventDispatcher {
 	public var inhpBabyPart = 0.5;
 	public var inhpBabyHealthPart = 0.5;
 
+	public var family:Float = 0;
+
 	// === end inh. props ==== //
 	
 	private var world:World;
@@ -57,7 +59,6 @@ class Tank implements Entity extends EventDispatcher {
 
 	private static var idSeq = 0;
 	public var id:Int;
-	public var family:Int;
 
 	// --- state
 
@@ -74,13 +75,12 @@ class Tank implements Entity extends EventDispatcher {
 	private var flankMode:Int;
 	private var timeToChangeFlankMode:Float = 0;
 
-	public function new(w:World, pos:Vector2, fam:Int) {
+	public function new(w:World, pos:Vector2) {
 
 		super();
 
 		this.position = pos;
 		this.world = w;
-		this.family = fam;
 
 		this.id = ++idSeq;
 
@@ -88,7 +88,7 @@ class Tank implements Entity extends EventDispatcher {
 	}
 
 	private function idStr() {
-		return "Tank#" + id + "[" + family + "]";
+		return "Tank#" + id;// + "[" + family + "]";
 	}
 
 	public function step(dt:Float) {
@@ -113,7 +113,7 @@ class Tank implements Entity extends EventDispatcher {
 				
 				if (distance.length() <= inhpSight) {
 
-					if (other.family != this.family) {
+					if (isEnemy(other)) {
 						if (targetEnemy == null) {
 							if (potentialTarget == null) potentialTarget = other;
 							else {
@@ -262,9 +262,9 @@ class Tank implements Entity extends EventDispatcher {
 			resources -= grow;
 			baby += grow;
 			if (baby >= babyRes) {
-				var nt = new Tank(world, position.clone(), Math.random() < 0.1 ? Maths.randomInt(4) : family);
+				var nt = new Tank(world, position.clone());//, Math.random() < 0.1 ? Maths.randomInt(4) : family);
 
-				trace(idStr() + " gave birth to " + nt.idStr() + (nt.family != family ? " (into a different family!)" : ""));
+				trace(idStr() + " gave birth to " + nt.idStr());// + (nt.family != family ? " (into a different family!)" : ""));
 				for (f in Reflect.fields(this)) {
 					if (f.indexOf("inhp") != 0) continue;
 					Reflect.setField(nt, f, Reflect.field(this, f) * Maths.randomBetween(0.5, 2));
@@ -276,6 +276,9 @@ class Tank implements Entity extends EventDispatcher {
 				nt.inhpBabyHealthPart = Math.min(nt.inhpBabyHealthPart, 1);
 				// - some artificial (find a natural solution later)
 				nt.inhpEatDistance = Math.min(nt.inhpEatDistance, 20);
+
+				// some manual inheritance
+				nt.family = (family + Maths.randomBetween(-0.2,0.2)) % 1;
 
 				nt.resources = babyRes;
 				baby -= babyRes;
@@ -291,6 +294,11 @@ class Tank implements Entity extends EventDispatcher {
 
 		position.add(velocity.clone().multiplyScalar(dt));
 
+	}
+
+	public function isEnemy(t:Tank) {
+		var fDist = Math.min(Math.abs(t.family - family), Math.abs((t.family + 1) - family));
+		return fDist > 0.25;
 	}
 
 	public function alive() {
