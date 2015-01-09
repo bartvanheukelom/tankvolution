@@ -71,7 +71,7 @@ class Tank implements Entity extends EventDispatcher {
 	public var baby:Float = 0;
 
 	private var changeDirIn:Float = 0;
-	private var movingToEnemy:Bool;
+	public var movingToEnemy:Bool;
 	private var flankMode:Int;
 	private var timeToChangeFlankMode:Float = 0;
 

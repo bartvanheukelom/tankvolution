@@ -8,15 +8,20 @@ import tankvolution.model.Tank;
 import tankvolution.model.World;
 import tankvolution.view.ResourceView;
 import tankvolution.view.TankView;
+import threejs.cameras.Camera;
 import threejs.cameras.OrthographicCamera;
 import threejs.cameras.PerspectiveCamera;
+import threejs.core.Geometry;
 import threejs.core.Object3D;
 import threejs.extras.geometries.CubeGeometry;
+import threejs.extras.geometries.PlaneBufferGeometry;
 import threejs.extras.geometries.PlaneGeometry;
+import threejs.extras.geometries.SphereGeometry;
 import threejs.lights.AmbientLight;
 import threejs.lights.DirectionalLight;
 import threejs.materials.MeshBasicMaterial;
 import threejs.materials.MeshLambertMaterial;
+import threejs.materials.MeshPhongMaterial;
 import threejs.math.Vector2;
 import threejs.math.Vector3;
 import threejs.objects.Mesh;
@@ -37,9 +42,17 @@ class Main {
 	public var renderer:WebGLRenderer;
 	public var scene:Scene;
 	private var cam:PerspectiveCamera;
+
+	private var camHeight:Float = 0;
+
+	private var ambient:AmbientLight;
 	private var sun:DirectionalLight;
 	private var sunTarget:Object3D;
 
+	private var skyScene:Scene;
+	private var skyCam:PerspectiveCamera;
+	private var sky:Mesh;
+	private var stars:Mesh;
 
 	private var uiCanvas:CanvasElement;
 	private var uiCtx:CanvasRenderingContext2D;
@@ -56,6 +69,8 @@ class Main {
 	private var viewingTank:Tank = null;
 
 	private static var GRASS = ThreeTextureAsset.declare("plains");
+	private static var SKY = ThreeTextureAsset.declare("sky");
+	private static var STARS = ThreeTextureAsset.declare("stars");
 
 	public static function main() {
 		Tortilla.game = new Main();
@@ -76,10 +91,10 @@ class Main {
 
 		KeyboardInput.init();
 
-		renderer = new WebGLRenderer({canvas: Tortilla.canvas, antialias: true, devicePixelRatio: 1});
+		renderer = new WebGLRenderer({canvas: Tortilla.canvas, antialias: false, devicePixelRatio: 1});
 		scene = new Scene();
 		cam = new PerspectiveCamera(75, 1, 1, 400);
-		cam.position.z = 60;
+		camHeight = 60;
 		cam.position.y = 45;
 		cam.rotation.x = Math.PI * 0.15;
 		cam.rotation.z = Math.PI;
@@ -91,7 +106,7 @@ class Main {
 		renderer.shadowMapEnabled = highGraphics;
     	// renderer.shadowMapSoft = true;
 
-		var ambient = new AmbientLight(0x999999aa);
+		ambient = new AmbientLight(0x000000);
 		scene.add(ambient);
 		
 		sunTarget = new Object3D();
@@ -105,9 +120,11 @@ class Main {
 		sun.shadowMapWidth = sun.shadowMapHeight = 4096;
 		sun.target = sunTarget;
 
-		scene.fog = new Fog(0x000000, 50, 400);
-
 		entityViews = new Map<Entity, Dynamic>();
+
+
+		skyScene = new Scene();
+		skyCam = new PerspectiveCamera(75, 1, 1, 400);
 
 		uiCanvas = Tortilla.createBuffer(1,1);
 		uiCtx = uiCanvas.getContext2d();
@@ -121,7 +138,7 @@ class Main {
 		uiTex.magFilter = ThreeJs.NearestFilter;
 		uiTex.minFilter = ThreeJs.NearestFilter;
 
-		uiPlane = new Mesh(new PlaneGeometry(1,1), new MeshBasicMaterial({map: uiTex, transparent: true}));
+		uiPlane = new Mesh(new PlaneBufferGeometry(1,1), new MeshBasicMaterial({map: uiTex, transparent: true}));
 		uiPlane.rotation.x = -Math.PI;
 		uiScene.add(uiPlane);
 
@@ -131,18 +148,66 @@ class Main {
 		AssetManager.init();
 		AssetManager.loadAll(null, function() {
 
+			sky = new Mesh(new SphereGeometry(100, 36, 4), new MeshBasicMaterial({map: SKY.texture(renderer), transparent: true}));
+			sky.rotation.x = Maths.HALFPI;
+			sky.scale.x = -1;
+			sky.rotation.order = "ZYX";
+			skyScene.add(sky);
+
+			stars = new Mesh(new SphereGeometry(105, 36, 4), new MeshBasicMaterial({map: STARS.texture(renderer), transparent: true}));
+			stars.rotation.x = Maths.HALFPI;
+			stars.scale.x = -1;
+			stars.rotation.order = "ZYX";
+			skyScene.add(stars);
+
 			world = new World(
 				Std.parseFloat(Tortilla.parameters.get("size", "300")),
 				Std.parseFloat(Tortilla.parameters.get("density", "0.001"))
 			);
 
-			var ground = new Mesh(new PlaneGeometry(world.size,world.size), new MeshLambertMaterial({map: GRASS.texture(renderer)}));
+			var floor = new Mesh(new PlaneBufferGeometry(10000, 10000), new MeshLambertMaterial({color: 0xFF6633}));
+			floor.position.z = -0.1;
+			scene.add(floor);
+
+			var wsi = Math.ceil(world.size / 3);
+
+			var gg = new PlaneGeometry(world.size, world.size, wsi, wsi);
+			for (v in gg.vertices) {
+				v.z = terrainHeight(v.x, v.y);
+			}
+			for (f in gg.faces) {
+				for (fv in 0...3) {
+					var vn = f.vertexNormals[fv];
+					var fvert:Vector3 = gg.vertices[Reflect.field(f, ["a","b","c"][fv])];
+					vn.x = terrainHeight(fvert.x-0.1, fvert.y) - terrainHeight(fvert.x+0.1, fvert.y);
+					vn.y = terrainHeight(fvert.x, fvert.y-0.1) - terrainHeight(fvert.x, fvert.y+0.1);
+					vn.z = 0.2 * 0.33;
+					vn.normalize();
+				}
+			}
+
+			var ground = new Mesh(gg, new MeshLambertMaterial({map: GRASS.texture(renderer)}));
 			ground.receiveShadow = true;
+			ground.castShadow = true;
 			scene.add(ground);
+
+			cam.far = world.size*2;
+			scene.fog = new Fog(0x3366FF, 50, world.size*0.75);
 
 		});
 
 
+	}
+
+	public function terrainHeight(x:Float, y:Float) {
+		var scaleX = 2;
+		var scaleY = 4;
+		return (
+			(Math.sin(x*0.1/scaleX)+1) +
+			(Math.cos(y*0.047/scaleX)+1) + 
+			(Math.sin(Maths.pythagoras(x, y)*0.02/scaleX)+1) * 4 +
+			(Math.cos(y*0.0068/scaleX)+1) * 4
+		) * scaleY;
 	}
 
 	private function adaptToSize() {
@@ -174,6 +239,7 @@ class Main {
 					if (Std.is(e, Tank)) {
 						viewingTank = cast e;
 						cam.rotation.x = Math.PI * 0.4;
+						camHeight = 5;
 						break;
 					}
 				}
@@ -200,7 +266,7 @@ class Main {
 
 			if (KeyboardInput.isKeyPressed(KeyboardInput.KEY_B)) {
 				cam.position.x = 0;
-				cam.position.z = 60;
+				camHeight = 60;
 				cam.position.y = 45;
 				cam.rotation.set(Math.PI * 0.15, 0, Math.PI);
 				viewingTank = null;
@@ -219,7 +285,7 @@ class Main {
 				var pos = new Vector3(viewingTank.position.x, viewingTank.position.y);
 				pos.x += Math.cos(ta + Math.PI) * 7;
 				pos.y += Math.sin(ta + Math.PI) * 7;
-				pos.z += 5;
+				pos.z += terrainHeight(viewingTank.position.x, viewingTank.position.y) + 5;
 				// cam.position.copy(pos);
 				// cam.rotation.z = -Maths.HALFPI + ta;
 				cam.rotation.z = Maths.averageEase(cam.rotation.z, -Maths.HALFPI + ta, 5, dt, 0.01);
@@ -234,8 +300,10 @@ class Main {
 			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_J)) cam.position.y -= camMove;
 			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_H)) cam.position.x -= camMove;
 			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_K)) cam.position.x += camMove;
-			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_O)) cam.position.z *= Math.pow(3, dt);
-			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_L)) cam.position.z *= Math.pow(1/3, dt);
+			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_O)) camHeight *= Math.pow(3, dt);
+			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_L)) camHeight *= Math.pow(1/3, dt);
+			if (viewingTank == null)
+				cam.position.z = camHeight + terrainHeight(cam.position.x, cam.position.y);
 			var camRot = dt*1.5;
 			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_S)) cam.rotation.x += camRot;
 			if (KeyboardInput.isKeyDown(KeyboardInput.KEY_W)) cam.rotation.x -= camRot;
@@ -259,23 +327,44 @@ class Main {
 
 			}
 
-			var repeats = KeyboardInput.isKeyDown(KeyboardInput.KEY_Z) ? 4 : 1;
+			var repeats = KeyboardInput.isKeyDown(KeyboardInput.KEY_Z) ? 5 : 1;
 			for (s in 0...repeats) {
 				world.step(dt);
 			}
 
+			var vdt = dt * repeats;
 			for (v in entityViews) {
-				v.update(dt);
+				v.update(vdt);
 			}
 
+			var sunCurve = (-Math.cos(world.dayProgress() * Maths.TWOPI) + 1) / 2;
+			var ambInts = sunCurve * 0.75 + 0.25;
+			ambient.color.setRGB(0.7, 0.7, 0.8);
+			ambient.color.multiplyScalar(ambInts);
 
+			sky.material.opacity = sunCurve * 0.8 + 0.2;
+			stars.material.opacity = Math.max(0, 0.8 - sunCurve * 2);
+			sky.material.needsUpdate = true;
+			stars.material.needsUpdate = true;
+
+			sky.rotation.z = -world.dayProgress() * Maths.TWOPI;
+			stars.rotation.z = world.dayProgress() * Maths.TWOPI;
+
+			scene.fog.color.setHex(0xB3B3B3);
+			scene.fog.color.multiplyScalar(ambInts);
+
+			var sunOrigin = new Vector3(1, 1, sunCurve * 2 + 0.1);
+			sunOrigin.applyAxisAngle(new Vector3(0,0,1), Maths.TWOPI * world.dayProgress());
+			// sun.visible = false;
+			sun.color.setHex(0xffbbbb);
+			sun.color.multiplyScalar(ambInts);
 
 			var camBase = cam.position.clone();
 			camBase.z = 0;
 			var camDistance = Math.max(50, cam.position.z);
 			
 			sunTarget.position.copy(camBase);
-			sun.position.copy(sunTarget.position.clone().add(new Vector3(1, 1, 1).multiplyScalar(camDistance*2)));
+			sun.position.copy(sunTarget.position.clone().add(sunOrigin.multiplyScalar(camDistance*2)));
 
 			sun.shadowCameraLeft = -camDistance;
 			sun.shadowCameraRight = -sun.shadowCameraLeft;
@@ -327,11 +416,18 @@ class Main {
 							var t:Tank = cast e;
 						
 
-							uiCtx.fillStyle = TankView.tankColour(t);// TankView.COLORS[t.family];
+							// uiCtx.fillStyle = TankView.tankColour(t);// TankView.COLORS[t.family];
 
-							uiCtx.globalAlpha = 0.2;
+							var rad = 12;
+
+							var grad = uiCtx.createRadialGradient(0, 0, 0, 0, 0, rad);
+							grad.addColorStop(0, TankView.tankColour(t));
+							grad.addColorStop(1, "rgba(0,0,0,0)");
+							uiCtx.fillStyle = grad;
+
+							uiCtx.globalAlpha = 0.33;
 							uiCtx.beginPath();
-							uiCtx.arc(0, 0, 7, 0, Math.PI*2, false);
+							uiCtx.arc(0, 0, rad, 0, Math.PI*2, false);
 							uiCtx.closePath();
 							uiCtx.fill();
 							uiCtx.globalAlpha = 1;
@@ -350,9 +446,22 @@ class Main {
 						}
 						if (Std.is(e, Resource)) {
 							var r:Resource = cast e;
-							uiCtx.fillStyle = "yellow";
-							uiCtx.globalAlpha = r.value / 500;
-							uiCtx.fillRect(-3, -3, 6, 6);
+
+							var rs = Math.pow((r.value * 0.02) / (0.75*Math.PI), 1/3);
+
+							var rad = 10 * rs;
+
+							var grad = uiCtx.createRadialGradient(0, 0, 0, 0, 0, rad);
+							grad.addColorStop(0, "yellow");
+							grad.addColorStop(1, "rgba(0,0,0,0)");
+							uiCtx.fillStyle = grad;
+
+							uiCtx.globalAlpha = 0.1;
+							uiCtx.beginPath();
+							uiCtx.arc(0, 0, rad, 0, Math.PI*2, false);
+							uiCtx.closePath();
+							uiCtx.fill();
+							uiCtx.globalAlpha = 1;
 						}
 
 					} uiCtx.restore();
@@ -384,8 +493,16 @@ class Main {
 
 		}
 
-		renderer.autoClear = true;
+		skyCam.up.copy(cam.up);
+		skyCam.rotation.copy(cam.rotation);
+		skyCam.aspect = cam.aspect;
+		skyCam.updateProjectionMatrix();
+
+		renderer.render(skyScene, skyCam);
+
+		renderer.autoClearColor = false;
 		renderer.render(scene, cam);
+		renderer.autoClearColor = true;
 
 		uiTex.needsUpdate = true;
 
@@ -400,6 +517,7 @@ class Main {
 
 		renderer.autoClear = false;
 		renderer.render(uiScene, uiCam);
+		renderer.autoClear = true;
 
 	}
 

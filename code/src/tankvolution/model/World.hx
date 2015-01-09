@@ -14,11 +14,15 @@ class World {
 	private var resourceDumpTime:Array<Float> = [0,0,0,0];
 
 	public var size:Float;
+	public var dayLength:Float = 300;
+
+	public var time:Float;
 
 	public function new(size:Float = 300, density:Float = 0.001) {
 
 		entities = [];
 		this.size = size;
+		this.time = dayLength / 2;
 
 		for (t in 0...Math.floor(size*size * density)) {
 			var pos = randomPos();
@@ -44,6 +48,8 @@ class World {
 	public function step(dt:Float):Void {
 
 		if (dt == 0) return;
+
+		time += dt;
 
 		for (i in 0...resourceDumpTime.length) resourceDumpTime[i] += dt;
 
@@ -87,6 +93,10 @@ class World {
 			Maths.randomBetween(-size/2, size/2), 
 			Maths.randomBetween(-size/2, size/2)
 		);
+	}
+
+	public function dayProgress() {
+		return (time / dayLength) % 1;
 	}
 
 }

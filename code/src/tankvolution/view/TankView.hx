@@ -7,8 +7,10 @@ import threejs.core.Object3D;
 import threejs.Disposable;
 import threejs.extras.geometries.BoxGeometry;
 import threejs.extras.geometries.CubeGeometry;
+import threejs.extras.geometries.CylinderGeometry;
 import threejs.materials.MeshBasicMaterial;
 import threejs.materials.MeshLambertMaterial;
+import threejs.materials.MeshPhongMaterial;
 import threejs.math.Matrix4;
 import threejs.math.Vector2;
 import threejs.objects.Mesh;
@@ -147,11 +149,14 @@ class TankView {
 		v.add(nozzle);
 
 		// --- turret
-		var tgm = new BoxGeometry(2, 0.5, 0.5);
+		// var tgm = new BoxGeometry(2, 0.5, 0.5);
+		var tgm = new CylinderGeometry(0.25, 0.25, 2, 16);
 		var tgmtf = new Matrix4();
+		tgmtf.makeRotationZ(Maths.HALFPI);
+		tgm.applyMatrix(tgmtf);
 		tgmtf.makeTranslation(1, 0, 0.25);
 		tgm.applyMatrix(tgmtf);
-		turret = new Mesh(tgm, new MeshLambertMaterial({ambient: 0x003333}));
+		turret = new Mesh(tgm, new MeshPhongMaterial({ambient: 0x003333}));
 		dispose.push(tgm);
 		dispose.push(turret.material);
 		turret.position.z = 1.5;
@@ -192,22 +197,39 @@ class TankView {
 		// pos and orientation
 		v.position.x = tank.position.x;
 		v.position.y = tank.position.y;
+		v.position.z = main.terrainHeight(v.position.x, v.position.y);
 		if (tank.velocity.length() != 0)
 			v.rotation.z = angle(tank.velocity);
 
 		// turret
-		var turScale = (tank.inhpPowerToLoad / 10) / v.scale.x;
+
+		var oldOp = nozzle.material.opacity;
+		var oldAmb = cast(nozzle.material, MeshLambertMaterial).ambient;
+
+		var turScaleX = (tank.inhpGunRange / 25) / v.scale.x;
+		var turScaleYZ = (tank.inhpPowerToLoad / 10) / v.scale.y;
+		loadBar.scale.x = tank.powerLoaded / tank.inhpPowerToLoad;
 		if (tank.targetEnemy != null) {
 			turret.rotation.z = angle(tank.targetEnemy.position.clone().sub(tank.position)) - v.rotation.z;
-			turret.scale.set(turScale, 1, 1);
-			loadBar.visible = true;
-			loadBar.scale.x = tank.powerLoaded / tank.inhpPowerToLoad;
-			nozzle.visible = false;
+			turret.scale.set(turScaleX, turScaleYZ, turScaleYZ);
+			
+			nozzle.visible = true;
+			cast(nozzle.material, MeshLambertMaterial).ambient.setHex(0xFF0000);
+			var resVec = tank.targetEnemy.position.clone().sub(tank.position);
+			nozzle.rotation.z = angle(resVec) - v.rotation.z;
+			nozzle.scale.x = resVec.length() / v.scale.x;
+
+			var fighting = resVec.length() <= tank.inhpGunRange && !tank.movingToEnemy;
+
+			nozzle.scale.y = nozzle.scale.z = fighting ? 1 : 0.5;			
+			nozzle.material.opacity = fighting ? 0.75 : 0.25;
+
+
 		} else {
 			turret.rotation.z = 0;
-			turret.scale.set(0.5 * turScale, 0.5, 0.5);
-			loadBar.visible = false;
+			turret.scale.set(0.5 * turScaleX, 0.5 * turScaleYZ, 0.5 * turScaleYZ);
 
+			cast(nozzle.material, MeshLambertMaterial).ambient.setHex(0xFFFF00);
 			if (tank.targetResource != null) {
 				nozzle.visible = true;
 				var resVec = tank.targetResource.position.clone().sub(tank.position);
@@ -216,15 +238,16 @@ class TankView {
 
 				var eating = resVec.length() <= tank.inhpEatDistance;
 
-				nozzle.scale.y = nozzle.scale.z = eating ? 1 : 0.5;
-
-				var oldOp = nozzle.material.opacity;
+				nozzle.scale.y = nozzle.scale.z = eating ? 1 : 0.5;			
 				nozzle.material.opacity = eating ? 0.75 : 0.25;
-				if (nozzle.material.opacity != oldOp) nozzle.material.needsUpdate = true;
+				
 			} else {
 				nozzle.visible = false;
 			}
 		}
+
+		// if (nozzle.material.opacity != oldOp || cast(nozzle.material, MeshLambertMaterial).ambient != oldAmb)
+			nozzle.material.needsUpdate = true;
 
 		// bars
 		healthBar.scale.x = Math.max(0.01, tank.health / tank.inhpMaxHealth);
