@@ -11,7 +11,7 @@ defClass(
 		step: function(dt) {
 			this.steps++;
 			this.time++;
-			if (this.steps % 1 == -1) {
+			if (this.steps % 1 == 0) {
 				let x = this.time * 0.1;
 				let r = x*4;
 				let d = 45 + Math.cos(r*8)*3;

@@ -4,21 +4,42 @@ defClass(
 	function(size, density) {
 
 		this.entities = [];
+		this.tanks = [];
 		this.resourceDumpTime = [0,0,0,0];
 		this.dayLength = 300;
 		this.size = size;
 		this.time = this.dayLength / 2;
+		
+		this.btWorld = new BulletWorld();
+		
+		
+		// floor
+		let hsize = size/2;
+		this.btWorld.createStaticBox(
+			size, size, 1,
+			0, 0, -0.5
+		);
+		// walls
+		this.btWorld.createStaticBox(
+			1, size, 20,
+			hsize+0.5, 0, 0
+		);
+		this.btWorld.createStaticBox(
+			1, size, 20,
+			-(hsize+0.5), 0, 0
+		);
+		this.btWorld.createStaticBox(
+			size, 1, 20,
+			0, hsize+0.5, 0
+		);
+		this.btWorld.createStaticBox(
+			size, 1, 20,
+			0, -(hsize+0.5), 0
+		);
 
-		for (let t = 0; t < Math.floor(size*size * density); t++) {
-            // log(this.randomPos);
-			var pos = this.randomPos();
-            // log(pos.toString());
-			// var fam = (pos.x > 0 ? 1 : 0) + (pos.y > 0 ? 2 : 0);
-			var tank = new tmp.Tank(this, pos);
-			tank.family = Math.random();
-			tank.health = tank.inhpMaxHealth * randomBetween(0.5, 1);
-			tank.resources = tank.inhpMaxResources * randomBetween(0.5, 1);
-			tank.baby = tank.inhpBabyPart * tank.inhpMaxResources * randomBetween(0, 0.8);
+		this.startTanks = Math.floor(size*size * density);
+		for (let t = 0; t < this.startTanks; t++) {
+			this.createTank();
 		}
 
 		// for (fam in 0...FAMILIES) {
@@ -31,12 +52,28 @@ defClass(
 		// }
 
 	}, {
+		
+		createTank: function() {
+			// log(this.randomPos);
+			var pos = this.randomPos();
+            // log(pos.toString());
+			// var fam = (pos.x > 0 ? 1 : 0) + (pos.y > 0 ? 2 : 0);
+			var tank = new tmp.Tank(this, pos);
+			tank.family = Math.random();
+			tank.health = tank.inhpMaxHealth * randomBetween(0.5, 1);
+			tank.resources = tank.inhpMaxResources * randomBetween(0.5, 1);
+			tank.baby = tank.inhpBabyPart * tank.inhpMaxResources * randomBetween(0, 0.8);
+		},
 
 		step: function(dt) {
 
 			if (dt == 0) return;
 
+			this.btWorld.stepSimulation(dt);
 			this.time += dt;
+			
+			if (this.tanks.length < this.startTanks / 4)
+				this.createTank();
 
 			for (let i = 0; i < this.resourceDumpTime.length; i++) {
 				this.resourceDumpTime[i] += dt;

@@ -72,7 +72,15 @@ defClass(
 		// log("Tank construct", this.position, this.position.x, this.position.y);
 		this.world = w;
 
-		w.entities.push(this);
+		this.world.entities.push(this);
+		this.world.tanks.push(this);
+		
+		let radius = 1;
+		this.btBody = this.world.btWorld.createSphere(
+			radius,
+			this.position.x, this.position.y, radius/2
+		);
+		
 	}, {
 
 		idStr: function() {
@@ -80,6 +88,8 @@ defClass(
 		},
 
 		step: function(dt) {
+
+			this.btBody.getPosition(this.position);
 
 			this.damage(dt * this.inhpDecayRate, "decay");
 
@@ -280,7 +290,9 @@ defClass(
 			if (this.disabled()) this.velocity.set(0, 0);
 			this.resources -= this.velocity.length() * this.inhpFuelRate;
 
-			this.position.add(this.velocity.clone().multiplyScalar(dt));
+			//this.position.add(this.velocity.clone().multiplyScalar(dt));
+			let f = 1/200;
+			this.btBody.applyImpulse(this.velocity.x*f, this.velocity.y*f, 0);
 
 		},
 
@@ -323,6 +335,7 @@ defClass(
 			if (this.health <= 0) {
 				log(this.idStr() + " has died (" + src + ")");
 				this.world.entities.splice(this.world.entities.indexOf(this), 1);
+				this.world.tanks.splice(this.world.tanks.indexOf(this), 1);
 				new tmp.Resource(this.world, this.position, this.mass() * 0.3333);
 			}
 		},
