@@ -72,7 +72,11 @@ defClass(
 			this.btWorld.stepSimulation(dt);
 			this.time += dt;
 			
-			if (this.tanks.length < this.startTanks / 4)
+			for (let e of this.entities) {
+				if ("preStep" in e)	e.preStep();
+			}
+			
+			if (this.tanks.length < this.startTanks / 2)
 				this.createTank();
 
 			for (let i = 0; i < this.resourceDumpTime.length; i++) {

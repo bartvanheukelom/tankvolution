@@ -86,10 +86,12 @@ defClass(
 		idStr: function() {
 			return "Tank#" + this.id;// + "[" + family + "]";
 		},
+		
+		preStep: function() {
+			this.btBody.getPosition(this.position);
+		},
 
 		step: function(dt) {
-
-			this.btBody.getPosition(this.position);
 
 			this.damage(dt * this.inhpDecayRate, "decay");
 

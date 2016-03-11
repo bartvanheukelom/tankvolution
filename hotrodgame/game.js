@@ -68,8 +68,14 @@ global.runFrame = function() {
 	prepareBoxRender();
 	for (let e of global.tw.entities) {
 		if (e instanceof tmp.Tank) {
+			if (e.disabled()) {
+				if (Math.floor(global.step / 30) % 2 == 1) continue;
+			}
 			//e.family;
-			var rgb = hslToRgb(e.family, 1, 0.4);
+			//log(e.resources);
+			let s = (e.relResources() * 0.7 + 0.3);
+			if (isNaN(s)) s = 0.3;
+			var rgb = hslToRgb(e.family, s, 0.4);
 			var scale = Math.pow(e.inhpMaxResources / 500, 1/3)
 			renderBox(e.btBody, rgb[0], rgb[1], rgb[2]);
 		}
