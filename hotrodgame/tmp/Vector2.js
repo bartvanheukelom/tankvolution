@@ -9,6 +9,7 @@ defClass(
 
 		set: function ( x, y ) {
 
+			if (isNaN(x) || isNaN(y)) throw new Error("Setting vec to nan", x, y);
 			this.x = x;
 			this.y = y;
 

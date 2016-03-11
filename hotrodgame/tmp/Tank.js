@@ -2,7 +2,7 @@
 defClass(
 	"tmp", "Tank",
 
-	function(w, pos) {
+	function(w, pos, parent) {
 
 		// ==== inheritable properties ==== //
 		// - sight
@@ -74,24 +74,28 @@ defClass(
 
 		this.world.entities.push(this);
 		this.world.tanks.push(this);
-		
+
 		let radius = 1;
 		this.btBody = this.world.btWorld.createSphere(
 			radius,
 			this.position.x, this.position.y, radius/2
 		);
-		
+
+		log(this.idStr(), "was born from", parent);
+
 	}, {
 
 		idStr: function() {
 			return "Tank#" + this.id;// + "[" + family + "]";
 		},
-		
+
 		preStep: function() {
 			this.btBody.getPosition(this.position);
 		},
 
 		step: function(dt) {
+
+			this.velocity.set(0,0);
 
 			this.damage(dt * this.inhpDecayRate, "decay");
 
@@ -100,7 +104,7 @@ defClass(
 			if (this.health < this.inhpMaxHealth && !this.disabled()) {
 				var heal = Math.min(this.inhpHealRate * dt, this.inhpMaxHealth - this.health);
 				this.health += heal;
-				this.resources -= heal;
+				this.addResources(-heal, "heal");
 			}
 
 			if (this.targetEnemy == null && !this.hungry()) {
@@ -137,7 +141,7 @@ defClass(
 			if (!this.veryHungry() && this.powerLoaded < this.inhpPowerToLoad) {
 				var toLoad = dt * this.inhpPowerLoadRate;
 				this.powerLoaded += toLoad;
-				this.resources -= toLoad;
+				this.addResources(-toLoad, "reload");
 			}
 
 			if (this.targetEnemy != null && !this.targetEnemy.alive()) {
@@ -249,7 +253,7 @@ defClass(
 							this.velocity.copy(distance.clone().normalize().multiplyScalar(this.hungry() ? this.inhpToEnemySpeed : this.inhpIdleSpeed));
 						} else {
 							this.velocity.set(0,0);
-							this.resources += this.targetResource.take(dt * this.inhpEatRate);
+							this.addResources(this.targetResource.take(dt * this.inhpEatRate), "eat");
 						}
 					}
 
@@ -259,7 +263,7 @@ defClass(
 			var babyRes = this.inhpMaxResources * this.inhpBabyPart;
 			if (this.plenty() && this.baby < babyRes) {
 				var grow = Math.min(babyRes - this.baby, dt * this.inhpBabyGrowRate);
-				this.resources -= grow;
+				this.addResources(-grow, "baby");
 				this.baby += grow;
 				if (this.baby >= babyRes) {
 					var nt = new tmp.Tank(this.world, this.position.clone());//, Math.random() < 0.1 ? randomInt(4) : family);
@@ -290,7 +294,7 @@ defClass(
 			}
 
 			if (this.disabled()) this.velocity.set(0, 0);
-			this.resources -= this.velocity.length() * this.inhpFuelRate;
+			this.addResources(-this.velocity.length() * this.inhpFuelRate, "move");
 
 			//this.position.add(this.velocity.clone().multiplyScalar(dt));
 			let f = 1/200;
@@ -323,8 +327,20 @@ defClass(
 			return this.relResources() >= 0.75;
 		},
 
+		addResources: function(x, who) {
+			let n = this.resources + x;
+			if (isNaN(n)) {
+				log("addResources", x, "to", this.resources, "of", this.idStr(), "by", who, "would NaN");
+				throw new Error();
+			}
+			this.resources = n;
+		},
+
 		relResources: function() {
-			return this.resources / this.inhpMaxResources;
+			let r = this.resources / this.inhpMaxResources;
+			if (isNaN(r))
+				log(this.idStr(), "relNaN", this.inhpMaxResources, this.resources);
+			return r;
 		},
 
 		mass: function() {
