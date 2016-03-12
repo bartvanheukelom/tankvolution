@@ -26,7 +26,7 @@ global.signum = function(x) {
 global.runFrame = function() {
 
 	let dt = 1/20;
-	
+
 	global.step++;
 	if (global.step % 1000 == 0) log("STEP", global.step);
 
@@ -65,6 +65,9 @@ global.runFrame = function() {
 	    return [r,g,b];
 	}
 
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	prepareBoxRender();
 	for (let e of global.tw.entities) {
 		if (e instanceof tmp.Tank) {
@@ -109,7 +112,7 @@ global.run = function() {
 
 
 */
-	
+
 	global.tw = new tmp.World(300, 0.001);
 
 	log("Entering loop");
