@@ -22,9 +22,37 @@ global.signum = function(x) {
 	if (x == 0) return 0;
 	return x > 0 ? 1 : -1;
 };
+global.hslToRgb = function(h, s, l){
+	var r, g, b;
+
+	if(s == 0){
+		r = g = b = l; // achromatic
+	}else{
+		var hue2rgb = function hue2rgb(p, q, t){
+			if(t < 0) t += 1;
+			if(t > 1) t -= 1;
+			if(t < 1/6) return p + (q - p) * 6 * t;
+			if(t < 1/2) return q;
+			if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+			return p;
+		}
+
+		var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+		var p = 2 * l - q;
+		r = hue2rgb(p, q, h + 1/3);
+		g = hue2rgb(p, q, h);
+		b = hue2rgb(p, q, h - 1/3);
+	}
+
+	return [r,g,b];
+};
+
+
 
 global.render_prog = 0;
 global.initGraphicsInner = function(render_prog) {
+
+	global.render_prog = render_prog;
 
 	let v = new Uint32Array(1);
 	glGenVertexArrays(1, v.buffer);
@@ -69,6 +97,7 @@ global.initGraphicsInner = function(render_prog) {
         -1.0, 1.0, 1.0,
         1.0,-1.0, 1.0
     ];
+	cubeVerts = cubeVerts.map(f => f/2);
 
 	let g_vertex_buffer_data = Float32Array.from(cubeVerts);
 
@@ -88,6 +117,7 @@ global.initGraphicsInner = function(render_prog) {
 
 }
 
+
 global.runFrame = function() {
 
 	let dt = 1/20;
@@ -96,43 +126,13 @@ global.runFrame = function() {
 	if (global.step % 1000 == 0) log("STEP", global.step);
 
 	global.tw.step(dt);
-/*
-	global.world.stepSimulation(dt);
-	for (let e of global.entities) e.step(dt);
-
-	prepareBoxRender();
-	for (let b of global.boxes) {
-		renderBox(b);
-	}
-*/
-	function hslToRgb(h, s, l){
-	    var r, g, b;
-
-	    if(s == 0){
-	        r = g = b = l; // achromatic
-	    }else{
-	        var hue2rgb = function hue2rgb(p, q, t){
-	            if(t < 0) t += 1;
-	            if(t > 1) t -= 1;
-	            if(t < 1/6) return p + (q - p) * 6 * t;
-	            if(t < 1/2) return q;
-	            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-	            return p;
-	        }
-
-	        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-	        var p = 2 * l - q;
-	        r = hue2rgb(p, q, h + 1/3);
-	        g = hue2rgb(p, q, h);
-	        b = hue2rgb(p, q, h - 1/3);
-	    }
-
-	    return [r,g,b];
-	}
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	glUseProgram(render_prog);
+		
 	prepareBoxRender();
 	
 	glBindVertexArray(vao2[0]);
@@ -165,30 +165,6 @@ global.runFrame = function() {
 };
 
 global.run = function() {
-/*
-	log("Hi World, " + typeof(hotrod.test.phys.BoxCreator));
-
-	log("btCreateWorld");
-	global.world = new BulletWorld();
-	global.world.createStaticBox(
-		150, 150, 2,
-		0, 0, -1
-	);
-
-	log("entities & boxes");
-	global.entities = [];
-	global.boxes = [];
-
-
-	log("new BoxCreator");
-	var bc = new hotrod.test.phys.BoxCreator(12, world, global.boxes);
-	log(typeof(bc));
-	log(typeof(bc.step));
-	log(bc.constructor.name);
-	entities.push(bc);
-
-
-*/
 
 	global.tw = new tmp.World(300, 0.001);
 
