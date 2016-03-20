@@ -49,16 +49,17 @@ global.hslToRgb = function(h, s, l){
 
 
 
-global.render_prog = 0;
-global.initGraphicsInner = function(render_prog) {
+global.basicProg = 0;
+global.initGraphicsInner = function(basicProg, basicProg_inColor) {
 
-	global.render_prog = render_prog;
+	global.basicProg = basicProg;
+	global.basicProg_inColor = basicProg_inColor;
 
 	let v = new Uint32Array(1);
 	glGenVertexArrays(1, v.buffer);
     glBindVertexArray(v[0]);
-	global.vao2 = v;
-	
+	global.cubeVAO = v;
+
 	let cubeVerts = [
         -1.0,-1.0,-1.0, // triangle 1 : begin
         -1.0,-1.0, 1.0,
@@ -102,17 +103,12 @@ global.initGraphicsInner = function(render_prog) {
 	let g_vertex_buffer_data = Float32Array.from(cubeVerts);
 
 	v = new Uint32Array(1);
-	log("glGenBuffers");
 	glGenBuffers(1, v.buffer);
-	log("glGenBuffers 0");
 	glBindBuffer(GL_ARRAY_BUFFER, v[0]);
-	log("glGenBuffers 1");
 	glBufferData(GL_ARRAY_BUFFER, g_vertex_buffer_data.byteLength, g_vertex_buffer_data.buffer, GL_STATIC_DRAW);
-	log("glGenBuffers 2");
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	log("glGenBuffers 3");
     glEnableVertexAttribArray(0);
-	log("glGenBuffers 4");
+
     glClearColor(0.0, 0.0, 0.0, 1.0);
 
 }
@@ -130,35 +126,35 @@ global.runFrame = function() {
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	glUseProgram(render_prog);
-		
+
+	glUseProgram(basicProg);
+
 	prepareBoxRender();
-	
-	glBindVertexArray(vao2[0]);
-	
+
+	glBindVertexArray(cubeVAO[0]);
+
 	for (let e of global.tw.entities) {
+		let rgb;
 		if (e instanceof tmp.Tank) {
 			if (e.disabled()) {
 				if (Math.floor(global.step / 30) % 2 == 1) continue;
 			}
-			//e.family;
-			//log(e.resources);
 			let s = (e.relResources() * 0.7 + 0.3);
 			let l = 0.2 + 0.4 * (e.health / e.inhpMaxHealth);
 			if (isNaN(s)) s = 0.3;
-			var rgb = hslToRgb(e.family, s, l);
-			var scale = Math.pow(e.inhpMaxResources / 500, 1/3)
-			renderBox(e.btBody, rgb[0], rgb[1], rgb[2]);
+			rgb = hslToRgb(e.family, s, l);
+			// let scale = Math.pow(e.inhpMaxResources / 500, 1/3)
+			renderBox(e.btBody);
 		}
-		if (e instanceof tmp.Resource) {
-			var rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
-			renderBox(
-				e.position.x, e.position.y, 0,
-				 rgb[0], rgb[1], rgb[2],
-				1
-			);
+		else if (e instanceof tmp.Resource) {
+			rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
+			renderBox(e.position.x, e.position.y, 0);
 		}
+		else continue;
+
+		glUniform3f(basicProg_inColor, rgb[0], rgb[1], rgb[2]);
+		glDrawArrays(GL_TRIANGLES, 0, 3*12);
+
 	}
 
 	return nativeStep();
