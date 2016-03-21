@@ -85,6 +85,9 @@ global.initGraphicsInner = function() {
 	xxx = glGetUniformLocation(basicProg, stringToUtf8("inColor"));
 	global.basicProg_inColor = xxx;
 	log("LOC", basicProg_mvp, basicProg_inColor);
+	if (basicProg_mvp == -1) {
+		throw new Error("Random basicProg_mvp fail");
+	}
 
 	let v = new Uint32Array(1);
 	glGenVertexArrays(1, v.buffer);
@@ -162,9 +165,14 @@ global.runFrame = function() {
 
 	updateCam();
 
-	glBindVertexArray(cubeVAO[0]);
+	function renderBox(body, rgb) {
+		glBindVertexArray(cubeVAO[0]);
+		setMvp(basicProg_mvp, body);
+		glUniform3f(basicProg_inColor, rgb[0], rgb[1], rgb[2]);
+		glDrawArrays(GL_TRIANGLES, 0, 3*12);
+	}
+
 	for (let e of global.tw.entities) {
-		let rgb;
 		if (e instanceof tmp.Tank) {
 			if (e.disabled()) {
 				if (Math.floor(global.step / 30) % 2 == 1) continue;
@@ -172,19 +180,14 @@ global.runFrame = function() {
 			let s = (e.relResources() * 0.7 + 0.3);
 			let l = 0.2 + 0.4 * (e.health / e.inhpMaxHealth);
 			if (isNaN(s)) s = 0.3;
-			rgb = hslToRgb(e.family, s, l);
+			let rgb = hslToRgb(e.family, s, l);
 			// let scale = Math.pow(e.inhpMaxResources / 500, 1/3)
-			setMvp(basicProg_mvp, e.btBody);
+			renderBox(e.btBody, rgb);
 		}
 		else if (e instanceof tmp.Resource) {
-			rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
-			setMvp(basicProg_mvp, e.btBody);
+			let rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
+			renderBox(e.btBody, rgb);
 		}
-		else continue;
-
-		glUniform3f(basicProg_inColor, rgb[0], rgb[1], rgb[2]);
-		glDrawArrays(GL_TRIANGLES, 0, 3*12);
-
 	}
 
 	return nativeStep();
