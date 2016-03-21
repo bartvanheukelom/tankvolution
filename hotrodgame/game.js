@@ -50,10 +50,41 @@ global.hslToRgb = function(h, s, l){
 
 
 global.basicProg = 0;
-global.initGraphicsInner = function(basicProg, basicProg_inColor) {
+global.initGraphicsInner = function() {
 
-	global.basicProg = basicProg;
-	global.basicProg_inColor = basicProg_inColor;
+	// { GL_VERTEX_SHADER, "../res/primitive_restart.vs.glsl" },
+	// { GL_FRAGMENT_SHADER, "../res/primitive_restart.fs.glsl" },
+	// { GL_NONE, NULL }
+
+	let c = new Int32Array(1);
+	global.basicProg = glCreateProgram();
+	for (let f of ["vs", "fs"]) {
+		let s = glCreateShader({
+			"vs": GL_VERTEX_SHADER,
+			"fs": GL_FRAGMENT_SHADER
+		}[f]);
+		let src = getFileContents("../res/primitive_restart." + f + ".glsl");
+		c[0] = src.byteLength;
+		glShaderSource(s, 1, src, c.buffer);
+		glCompileShader(s);
+		glGetShaderiv( s, GL_COMPILE_STATUS, c.buffer);
+		if (!c[0]) {
+			throw new Error("Shader compile error " + c[0]);
+		}
+		glAttachShader(basicProg, s);
+	}
+	glLinkProgram(basicProg);
+	glGetProgramiv(basicProg, GL_LINK_STATUS, c.buffer);
+	if (!c[0]) {
+		throw new Error("Link error");
+	}
+
+	let xxx;
+	xxx = glGetUniformLocation(basicProg, stringToUtf8("mvp"));
+	global.basicProg_mvp = xxx;
+	xxx = glGetUniformLocation(basicProg, stringToUtf8("inColor"));
+	global.basicProg_inColor = xxx;
+	log("LOC", basicProg_mvp, basicProg_inColor);
 
 	let v = new Uint32Array(1);
 	glGenVertexArrays(1, v.buffer);
@@ -129,10 +160,9 @@ global.runFrame = function() {
 
 	glUseProgram(basicProg);
 
-	prepareBoxRender();
+	updateCam();
 
 	glBindVertexArray(cubeVAO[0]);
-
 	for (let e of global.tw.entities) {
 		let rgb;
 		if (e instanceof tmp.Tank) {
@@ -144,11 +174,11 @@ global.runFrame = function() {
 			if (isNaN(s)) s = 0.3;
 			rgb = hslToRgb(e.family, s, l);
 			// let scale = Math.pow(e.inhpMaxResources / 500, 1/3)
-			renderBox(e.btBody);
+			setMvp(basicProg_mvp, e.btBody);
 		}
 		else if (e instanceof tmp.Resource) {
 			rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
-			renderBox(e.position.x, e.position.y, 0);
+			setMvp(basicProg_mvp, e.position.x, e.position.y, 0);
 		}
 		else continue;
 
@@ -161,6 +191,8 @@ global.runFrame = function() {
 };
 
 global.run = function() {
+
+	initGraphicsInner();
 
 	global.tw = new tmp.World(300, 0.001);
 
