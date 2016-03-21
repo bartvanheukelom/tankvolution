@@ -178,7 +178,7 @@ global.runFrame = function() {
 		}
 		else if (e instanceof tmp.Resource) {
 			rgb = hslToRgb(0.2, 1, Math.min(1, e.value / 200));
-			setMvp(basicProg_mvp, e.position.x, e.position.y, 0);
+			setMvp(basicProg_mvp, e.btBody);
 		}
 		else continue;
 
