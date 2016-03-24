@@ -32,7 +32,7 @@ defClass(
 			this.value -= res;
 			if (this.value == 0) {
 				this.world.entities.splice(this.world.entities.indexOf(this), 1);
-				// TODO remove body
+				this.btBody.destroy();
 			}
 			return res;
 		}

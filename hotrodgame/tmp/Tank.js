@@ -354,6 +354,7 @@ defClass(
 				log(this.idStr() + " has died (" + src + ")");
 				this.world.entities.splice(this.world.entities.indexOf(this), 1);
 				this.world.tanks.splice(this.world.tanks.indexOf(this), 1);
+				this.btBody.destroy();
 				new tmp.Resource(this.world, this.position, this.mass() * 0.3333);
 			}
 		},
